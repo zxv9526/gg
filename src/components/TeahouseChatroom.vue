@@ -128,16 +128,6 @@
           </button>
         </div>
 
-        <!-- Chat Settings Dropdown Button -->
-        <button
-          type="button"
-          @click="showSettingsModal = !showSettingsModal"
-          class="w-8 h-8 rounded-xl bg-[#EFE5D3] hover:bg-[#E5D7C2] border border-[#D8C7B0] text-[#3C2C1E] flex items-center justify-center text-xs shadow-xs active:scale-95 cursor-pointer transition-all shrink-0"
-          title="聊天室设置"
-        >
-          ⚙️
-        </button>
-
         <!-- Connection status -->
         <div class="hidden sm:flex px-2.5 py-1 rounded-xl bg-[#FAF4E8] border border-[#D8C7B0] text-[10px] sm:text-xs font-mono text-[#5C4533] items-center gap-1.5 shrink-0 shadow-xs">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -375,22 +365,22 @@
         </button>
 
         <!-- ======================================================== -->
-        <!-- INTEGRATED ACTION BANNER: 🎙️语音对讲                    -->
+        <!-- INTEGRATED ACTION BANNER: 🎙️语音对讲 + ⚙️聊天设置        -->
         <!-- ======================================================== -->
         <div class="pt-2 border-t border-[#D8C7B0] shrink-0 bg-[#FAF4E8]">
-          <div class="w-full">
+          <div class="w-full flex items-center gap-2">
             <!-- 语音对讲按钮 -->
             <button
               v-if="!isRecordingVoice"
               type="button"
               @click="startVoiceRecording"
-              class="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-[#241B14] via-[#2F2218] to-[#201711] hover:from-[#32251B] hover:to-[#2B1F17] border border-amber-500/60 hover:border-amber-400 text-amber-300 font-serif font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer transition-all"
+              class="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-[#241B14] via-[#2F2218] to-[#201711] hover:from-[#32251B] hover:to-[#2B1F17] border border-amber-500/60 hover:border-amber-400 text-amber-300 font-serif font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer transition-all"
               title="按住发送实时麦克风语音对讲"
             >
               <span class="text-base">🎙️</span>
               <span>语音对讲 (20s)</span>
             </button>
-            <div v-else class="flex items-center gap-1">
+            <div v-else class="flex-1 flex items-center gap-1">
               <button
                 type="button"
                 @click="stopAndSendVoiceRecording"
@@ -411,8 +401,18 @@
                 ✕
               </button>
             </div>
-          </div>
 
+            <!-- 聊天设置按钮 -->
+            <button
+              type="button"
+              @click="showSettingsModal = !showSettingsModal"
+              class="px-3 py-2.5 rounded-2xl bg-[#EFE5D3] hover:bg-[#E5D7C2] border border-[#D8C7B0] text-[#3C2C1E] font-serif font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs active:scale-95 cursor-pointer transition-all shrink-0 whitespace-nowrap"
+              title="聊天室设置"
+            >
+              <span>⚙️</span>
+              <span>聊天设置</span>
+            </button>
+          </div>
         </div>
       </div>
 
