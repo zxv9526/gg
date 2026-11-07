@@ -2207,7 +2207,19 @@ export async function handleApiRoute(
           break;
         }
       }
+      // 手机号未建档，检查是否在白名单中
       if (!foundProfile) {
+        const { allowedPhones, adminPhones } = getAllowedAndAdminPhones();
+        const isAuth = allowedPhones.some((p) => p === cleanPhone || p.endsWith(cleanPhone) || cleanPhone.endsWith(p)) ||
+                       adminPhones.some((p) => p === cleanPhone || p.endsWith(cleanPhone) || cleanPhone.endsWith(p));
+        if (isAuth) {
+          sendJson(res, 200, {
+            success: false,
+            needRegister: true,
+            error: '该手机号已在白名单授权，但尚未激活注册。请先点击【注册账号】设置您的6位密码与牌桌昵称！',
+          });
+          return true;
+        }
         sendJson(res, 200, { success: false, error: '该手机号尚未注册或密码错误，请先注册' });
         return true;
       }
@@ -2233,16 +2245,24 @@ export async function handleApiRoute(
         return true;
       }
 
-      if (foundProfile.password) {
-        const isValid = verifyPassword(String(password).trim(), foundProfile.password);
-        if (!isValid) {
-          sendJson(res, 200, { success: false, error: '手机号或密码不正确' });
-          return true;
-        }
-        // Upgrade legacy plaintext password to secure hash upon successful login
-        if (!foundProfile.password.includes(':')) {
-          foundProfile.password = hashPassword(String(password).trim());
-        }
+      // 核心安全漏洞修复：白名单预建档手机号尚未在前端注册设置密码，严禁以任意密码直接登录！
+      if (!foundProfile.password || !String(foundProfile.password).trim()) {
+        sendJson(res, 200, {
+          success: false,
+          needRegister: true,
+          error: '该手机号已在白名单授权，但尚未激活注册。请先点击【注册账号】设置您的6位密码与牌桌昵称！',
+        });
+        return true;
+      }
+
+      const isValid = verifyPassword(String(password).trim(), foundProfile.password);
+      if (!isValid) {
+        sendJson(res, 200, { success: false, error: '手机号或密码不正确' });
+        return true;
+      }
+      // Upgrade legacy plaintext password to secure hash upon successful login
+      if (!foundProfile.password.includes(':')) {
+        foundProfile.password = hashPassword(String(password).trim());
       }
       const sessionToken = 'sess_' + Math.random().toString(36).slice(2) + '_' + Date.now();
       foundProfile.sessionToken = sessionToken;

@@ -123,16 +123,6 @@ export class RoomManager {
         return false;
       }
 
-      if (room.status === 'waiting') {
-        validPlayers.forEach((pl: any) => { pl.isReady = true; });
-      }
-
-      const allReady = validPlayers.every((pl: any) => Boolean(pl.isReady));
-
-      if (!allReady) {
-        return false;
-      }
-
       validPlayers.forEach((pl: any, idx: number) => {
         pl.seat = idx;
         pl.isReady = true;

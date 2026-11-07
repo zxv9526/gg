@@ -2730,13 +2730,10 @@ function connectWs() {
           const isMyRoom = Boolean(msg.roomId && activeRoomId.value && msg.roomId === activeRoomId.value);
           const isMeInPlayers = msg.players.some((p: any) =>
             (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && p.id.startsWith(userProfile.id)))) ||
-            (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value))))
+            (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value)))) ||
+            (userProfile.name && p.name === userProfile.name)
           );
-          if (activeRoomId.value) {
-            if (!isMyRoom) return;
-          } else {
-            if (!isMeInPlayers) return;
-          }
+          if (!isMyRoom && !isMeInPlayers) return;
           currentWaitingRoomPlayers.value = msg.players;
           if (msg.roomId) activeRoomId.value = msg.roomId;
             if (msg.gameType) activeGameType.value = msg.gameType;
@@ -2832,14 +2829,11 @@ function connectWs() {
         const isMyRoom = Boolean(msg.roomId && activeRoomId.value && msg.roomId === activeRoomId.value);
         const isMeInPlayers = Array.isArray(playersArr) && playersArr.some((p: any) =>
           (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && p.id.startsWith(userProfile.id)))) ||
-          (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value))))
+          (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value)))) ||
+          (userProfile.name && p.name === userProfile.name)
         );
-        if (activeRoomId.value) {
-          if (!isMyRoom) return;
-        } else {
-          if (!isMeInPlayers) return;
-        }
-          if (msg.roomId) activeRoomId.value = msg.roomId;
+        if (!isMyRoom && !isMeInPlayers) return;
+        if (msg.roomId) activeRoomId.value = msg.roomId;
           if (msg.gameType) activeGameType.value = msg.gameType;
           if (msg.sceneMode) {
             activeSceneMode.value = msg.sceneMode;

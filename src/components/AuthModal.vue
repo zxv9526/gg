@@ -354,6 +354,12 @@ async function submitLogin() {
       emit('close');
       return;
     } else {
+      if (data.needRegister) {
+        authTab.value = 'register';
+        errorMessage.value = data.error || '该手机号已在白名单授权，尚未激活注册。请在此设置6位密码与牌桌昵称！';
+        soundFX.playTap();
+        return;
+      }
       errorMessage.value = data.error || '手机号或密码不匹配，请核对后再试';
       soundFX.playTap();
       return;

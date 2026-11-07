@@ -522,21 +522,14 @@ wss.on('connection', (ws) => {
           return true;
         }
 
-        // 3. 深度席位校验与修正：过滤有效玩家，强制按 0..maxPlayers-1 顺序严格重置席位
+        // 3. 深度席位校验与修正：过滤有效玩家，强制按 0..maxPlayers-1 顺序严格重置席位与准备状态
         const validPlayers = room.players.filter((p: any) => p && (p.id || p.name)).slice(0, room.maxPlayers);
         if (validPlayers.length < room.maxPlayers) {
           room.status = 'waiting';
           return false;
         }
 
-        const allReady = validPlayers.every((pl: any) => Boolean(pl.isReady));
-
-        if (!allReady) {
-          const readyCount = validPlayers.filter((pl: any) => Boolean(pl.isReady)).length;
-          console.log(`⏳ [等待全员准备] 纯真人房间 ${room.id} (${room.gameType}) 准备进度: ${readyCount}/${room.maxPlayers}，等待其他真人牌友就绪...`);
-          return false;
-        }
-
+        // 满员即开规则：达到人数（烟三/十三水/麻将）全员自动就绪，严禁因准备标志阻塞开局
         validPlayers.forEach((pl: any, idx: number) => {
           pl.seat = idx;
           pl.isReady = true;

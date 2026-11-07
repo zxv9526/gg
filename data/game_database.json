@@ -38,6 +38,15 @@
   "adminPhones": [],
   "adminLogs": [
     {
+      "id": "log-1794060573958-2oj6",
+      "action": "USER_REGISTER",
+      "operator": "Telegram Auth",
+      "target": "13912345678",
+      "amount": 0,
+      "details": "白名单预建用户激活注册成功: 雀神一哥 (📱 13912345678, UID: USER-5678-281)，当前预设筹码: 0",
+      "timestamp": "14:09"
+    },
+    {
       "id": "log-1793518897529-9t9v",
       "action": "TG_AUTHPHONE",
       "operator": "tester_admin",

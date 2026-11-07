@@ -1025,13 +1025,10 @@ function handleWsMessage(event: MessageEvent) {
       if (msg.gameType === props.gameType && msg.sceneMode === props.sceneMode) {
         const isMyRoom = Boolean(msg.roomId && currentRoomId.value && msg.roomId === currentRoomId.value);
         const isMeInPlayers = Array.isArray(msg.players) && msg.players.some((p: any) =>
-          (props.currentUser?.id && (p.id === props.currentUser.id || p.originalId === props.currentUser.id || (typeof p.id === 'string' && p.id.startsWith(props.currentUser.id))))
+          (props.currentUser?.id && (p.id === props.currentUser.id || p.originalId === props.currentUser.id || (typeof p.id === 'string' && p.id.startsWith(props.currentUser.id)))) ||
+          (props.currentUser?.name && p.name === props.currentUser.name)
         );
-        if (currentRoomId.value) {
-          if (!isMyRoom) return;
-        } else {
-          if (!isMeInPlayers) return;
-        }
+        if (!isMyRoom && !isMeInPlayers) return;
 
         if (msg.roomId) {
           currentRoomId.value = msg.roomId;
