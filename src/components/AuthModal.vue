@@ -82,12 +82,13 @@
 
             <!-- Edit Nickname -->
             <div>
-              <label class="block text-[11px] text-[#6B5744] mb-1">修改堂号名讳</label>
+              <label class="block text-[11px] text-[#6B5744] mb-1">修改堂号名讳 (最多3个字)</label>
               <input
                 v-model="editName"
                 type="text"
+                maxlength="3"
                 class="w-full px-3 py-1.5 text-xs rounded-xl bg-[#FFFDF8] border border-[#D8C7B0] text-[#3C2C1E] focus:outline-none focus:border-[#5C4533] shadow-inner"
-                placeholder="请输入新的名号..."
+                placeholder="请输入新的名号 (最多3个字)..."
               />
             </div>
 
@@ -179,34 +180,15 @@
 
                 <!-- Nickname -->
                 <div class="sm:col-span-2">
-                  <label class="block text-[11px] text-[#6B5744] mb-1">牌桌名号 (昵称)</label>
+                  <label class="block text-[11px] text-[#6B5744] mb-1">牌桌名号 (昵称，最多3个字)</label>
                   <input
                     v-model="formNickname"
                     type="text"
+                    maxlength="3"
                     class="w-full px-3 py-1.5 text-xs rounded-xl bg-[#FFFDF8] border border-[#D8C7B0] text-[#3C2C1E] focus:outline-none focus:border-[#5C4533] shadow-inner"
-                    placeholder="如：香江雀仙（选填，默认手机尾号茶客）"
+                    placeholder="如：茶客（选填，最多3个字）"
                     @keydown.enter="submitRegister"
                   />
-                </div>
-              </div>
-
-              <!-- Sleek Horizontal Avatar Picker -->
-              <div class="pt-1">
-                <div class="flex items-center justify-between mb-1">
-                  <label class="text-[11px] text-[#6B5744]">印信头像选择</label>
-                  <span class="text-xs text-[#5C4533] font-mono">当前选择: {{ formAvatar }}</span>
-                </div>
-                <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-                  <button
-                    v-for="av in AVATAR_OPTIONS"
-                    :key="av"
-                    type="button"
-                    @click="formAvatar = av"
-                    :class="formAvatar === av ? 'border-[#5C4533] bg-[#EFE5D3] text-[#3C2C1E] ring-2 ring-[#7D6049] scale-105' : 'border-[#D8C7B0] bg-[#FFFDF8] text-[#3C2C1E]/80 hover:border-[#BFA98F]'"
-                    class="w-8 h-8 rounded-lg border text-base flex items-center justify-center shrink-0 transition-all cursor-pointer"
-                  >
-                    {{ av }}
-                  </button>
                 </div>
               </div>
             </div>
@@ -381,6 +363,10 @@ async function submitRegister() {
     errorMessage.value = '登录密码必须为六位数';
     return;
   }
+  if (formNickname.value.trim().length > 3) {
+    errorMessage.value = '昵称长度不能超过3个字';
+    return;
+  }
 
   try {
     const res = await fetch(resolveApiUrl('/api/auth/register'), {
@@ -438,7 +424,12 @@ async function submitRegister() {
 }
 
 function handleSaveProfile() {
-  currentProfile.name = editName.value.trim() || currentProfile.name;
+  const newName = editName.value.trim();
+  if (newName.length > 3) {
+    errorMessage.value = '昵称长度不能超过3个字';
+    return;
+  }
+  currentProfile.name = newName || currentProfile.name;
   currentProfile.avatar = editAvatar.value;
   saveLocalProfile(currentProfile);
 

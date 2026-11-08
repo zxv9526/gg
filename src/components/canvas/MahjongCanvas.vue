@@ -2193,7 +2193,29 @@ function drawTable() {
     ctx.restore();
   };
 
+function getPlayerInfoByRelSeat(relSeat: number): { name: string; avatar: string } {
+  const defaultNames = ['玩家', '牌友 A', '牌友 B', '牌友 C'];
+  const defaultEmojis = ['👑', '🧑', '🧓', '🧔'];
+  if (props.roomPlayers && props.roomPlayers.length > 0) {
+    const absSeat = relToAbsSeat(relSeat);
+    const p = props.roomPlayers[absSeat];
+    if (p && p.name) {
+      const pName = String(p.name);
+      const shortName = pName.length > 4 ? `${pName.slice(0, 3)}..` : pName;
+      return {
+        name: shortName,
+        avatar: p.avatar || defaultEmojis[relSeat],
+      };
+    }
+  }
+  return {
+    name: defaultNames[relSeat],
+    avatar: defaultEmojis[relSeat],
+  };
+}
+
   // 1. Top: North (顶部玩家: 蓝色椭圆头像)
+  const northInfo = getPlayerInfoByRelSeat(2);
   const northCount = dealingPhase.value === 'dealing_tiles'
     ? oppHandsDealtCount.value[1]
     : (dealingPhase.value === 'rolling_dice' ? 0 : oppCounts.value[1]);
@@ -2202,8 +2224,8 @@ function drawTable() {
     26,
     52,
     22,
-    '🧓',
-    '北席',
+    northInfo.avatar,
+    northInfo.name,
     northCount,
     '#3B82F6',
     turnPlayer.value === 2 && dealingPhase.value === 'playing',
@@ -2262,6 +2284,7 @@ function drawTable() {
   }
 
   // 2. Left: West (左玩家: 红色椭圆头像)
+  const westInfo = getPlayerInfoByRelSeat(3);
   const westCount = dealingPhase.value === 'dealing_tiles'
     ? oppHandsDealtCount.value[2]
     : (dealingPhase.value === 'rolling_dice' ? 0 : oppCounts.value[2]);
@@ -2270,8 +2293,8 @@ function drawTable() {
     90,
     22,
     42,
-    '🧔',
-    '西席',
+    westInfo.avatar,
+    westInfo.name,
     westCount,
     '#EF4444',
     turnPlayer.value === 3 && dealingPhase.value === 'playing',
@@ -2281,6 +2304,7 @@ function drawTable() {
   );
 
   // 3. Right: East (右玩家: 绿色椭圆头像)
+  const eastInfo = getPlayerInfoByRelSeat(1);
   const eastCount = dealingPhase.value === 'dealing_tiles'
     ? oppHandsDealtCount.value[0]
     : (dealingPhase.value === 'rolling_dice' ? 0 : oppCounts.value[0]);
@@ -2289,34 +2313,14 @@ function drawTable() {
     90,
     22,
     42,
-    '🧑',
-    '东席',
+    eastInfo.avatar,
+    eastInfo.name,
     eastCount,
     '#10B981',
     turnPlayer.value === 1 && dealingPhase.value === 'playing',
     'vertical',
     dealerSeat.value === 1,
     turnCountdown.value
-  );
-
-  // 4. Bottom Left: South (本家玩家: 金黄椭圆头像)
-  const southName = props.currentUser?.name ? (props.currentUser.name.length > 4 ? `${props.currentUser.name.slice(0, 3)}..` : props.currentUser.name) : '南席(我)';
-  const southEmoji = props.currentUser?.avatar || '👑';
-  const isSouthActive = (turnPlayer.value === 0 || isClaiming.value) && dealingPhase.value === 'playing';
-  const southTimer = isClaiming.value ? claimCountdown.value : turnCountdown.value;
-  drawOvalOpponentAvatar(
-    30,
-    220,
-    22,
-    42,
-    southEmoji,
-    southName,
-    myHand.value.length,
-    '#F59E0B',
-    isSouthActive,
-    'vertical',
-    dealerSeat.value === 0,
-    southTimer
   );
 
   // Discard Pool (凸字形样式：上部宽 560px 紧贴顶部头像底部，下部向左右延伸至 644px，底部显示三个玩家碰牌)

@@ -2118,6 +2118,10 @@ export async function handleApiRoute(
         sendJson(res, 200, { success: false, error: '手机号格式不正确' });
         return true;
       }
+      if (nickname && String(nickname).trim().length > 3) {
+        sendJson(res, 200, { success: false, error: '昵称长度不能超过3个字' });
+        return true;
+      }
 
       const { allowedPhones, adminPhones } = getAllowedAndAdminPhones();
       const isAuthorized = allowedPhones.some((p) => p === cleanPhone || p.endsWith(cleanPhone) || cleanPhone.endsWith(p)) ||
