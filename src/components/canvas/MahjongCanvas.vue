@@ -731,11 +731,11 @@ let autoHostTimer: any = null;
 
 function startTurnCountdown() {
   stopTurnCountdown();
-  if (isAutoHost.value || turnPlayer.value !== 0 || hasWon.value || isDrawStalemate.value) return;
+  if (hasWon.value || isDrawStalemate.value) return;
   turnCountdown.value = 30;
   drawTable();
   countdownInterval = setInterval(() => {
-    if (isAutoHost.value || turnPlayer.value !== 0 || hasWon.value || isDrawStalemate.value) {
+    if (hasWon.value || isDrawStalemate.value) {
       stopTurnCountdown();
       return;
     }
@@ -743,9 +743,10 @@ function startTurnCountdown() {
     drawTable();
     if (turnCountdown.value <= 0) {
       stopTurnCountdown();
-      // 超时30秒自动托管
-      isAutoHost.value = true;
-      checkAutoHostTurn();
+      if (turnPlayer.value === 0 && !isAutoHost.value) {
+        isAutoHost.value = true;
+        checkAutoHostTurn();
+      }
       drawTable();
     }
   }, 1000);
@@ -2045,13 +2046,14 @@ function drawTable() {
     color: string,
     isActive: boolean,
     orientation: 'horizontal' | 'vertical',
-    isDealer = false
+    isDealer = false,
+    countdownSec?: number
   ) => {
     ctx.save();
 
     // Active breathing / glowing aura
     if (isActive) {
-      ctx.shadowColor = color;
+      ctx.shadowColor = '#EF4444';
       ctx.shadowBlur = 14;
     } else {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
@@ -2059,30 +2061,31 @@ function drawTable() {
       ctx.shadowOffsetY = 2;
     }
 
-    // Oval background matching the border color (Blue for North, Red for West, Green for East)
+    // Oval background matching the border color
     const grad = ctx.createRadialGradient(cx, cy - ry * 0.25, 4, cx, cy, Math.max(rx, ry));
     if (color === '#3B82F6') {
-      // 蓝色背景 (北席 - 边框同色系 #3B82F6)
       grad.addColorStop(0, isActive ? '#3B82F6' : '#2563EB');
       grad.addColorStop(0.55, '#1D4ED8');
       grad.addColorStop(1, '#172554');
     } else if (color === '#EF4444') {
-      // 红色背景 (西席 - 边框同色系 #EF4444)
       grad.addColorStop(0, isActive ? '#EF4444' : '#DC2626');
       grad.addColorStop(0.55, '#B91C1C');
       grad.addColorStop(1, '#450A0A');
     } else if (color === '#10B981') {
-      // 绿色背景 (东席 - 边框同色系 #10B981)
       grad.addColorStop(0, isActive ? '#10B981' : '#059669');
       grad.addColorStop(0.55, '#047857');
       grad.addColorStop(1, '#022C22');
+    } else if (color === '#F59E0B') {
+      grad.addColorStop(0, isActive ? '#F59E0B' : '#D97706');
+      grad.addColorStop(0.55, '#B45309');
+      grad.addColorStop(1, '#451A03');
     } else {
       grad.addColorStop(0, color);
       grad.addColorStop(1, '#110C09');
     }
 
     ctx.fillStyle = grad;
-    ctx.strokeStyle = isActive ? '#FFFFFF' : color;
+    ctx.strokeStyle = isActive ? '#EF4444' : color;
     ctx.lineWidth = isActive ? 2.5 : 2;
 
     ctx.beginPath();
@@ -2102,7 +2105,7 @@ function drawTable() {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-
+    const currentSec = countdownSec !== undefined ? countdownSec : (isClaiming.value ? claimCountdown.value : turnCountdown.value);
 
     if (orientation === 'horizontal') {
       // Horizontal Oval (North / Seat 2 at top)
@@ -2110,10 +2113,10 @@ function drawTable() {
       const avatarCx = cx - rx + avatarR + 6;
       const avatarCy = cy;
 
-      // Circle avatar icon badge
+      // Circle avatar icon badge - Always show avatar emoji
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isActive ? '#EF4444' : 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = isActive ? 1.5 : 1;
       ctx.beginPath();
       ctx.arc(avatarCx, avatarCy, avatarR, 0, Math.PI * 2);
       ctx.fill();
@@ -2134,17 +2137,17 @@ function drawTable() {
 
       ctx.fillStyle = '#FEF08A';
       ctx.font = 'bold 10px monospace';
-      ctx.fillText(`${count}张${isActive ? ' ⏳' : ''}`, textX, cy + 7);
+      ctx.fillText(`${count}张`, textX, cy + 7);
     } else {
-      // Vertical Oval (West / Seat 3 on left and East / Seat 1 on right)
+      // Vertical Oval (West, East, South)
       const avatarR = 14;
       const avatarCx = cx;
       const avatarCy = cy - ry + avatarR + 6;
 
-      // Circle avatar icon badge
+      // Circle avatar icon badge - Always show avatar emoji
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isActive ? '#EF4444' : 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = isActive ? 1.5 : 1;
       ctx.beginPath();
       ctx.arc(avatarCx, avatarCy, avatarR, 0, Math.PI * 2);
       ctx.fill();
@@ -2165,7 +2168,26 @@ function drawTable() {
       // Count
       ctx.fillStyle = '#FEF08A';
       ctx.font = 'bold 10px monospace';
-      ctx.fillText(`${count}张${isActive ? ' ⏳' : ''}`, cx, cy + 18);
+      ctx.fillText(`${count}张`, cx, cy + 18);
+    }
+
+    // Dealer Badge (庄家徽章)
+    if (isDealer) {
+      const badgeX = orientation === 'horizontal' ? cx + rx - 6 : cx + rx - 4;
+      const badgeY = orientation === 'horizontal' ? cy - ry + 4 : cy - ry + 4;
+      ctx.fillStyle = '#F59E0B';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(badgeX, badgeY, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('庄', badgeX, badgeY + 0.5);
     }
 
     ctx.restore();
@@ -2186,7 +2208,8 @@ function drawTable() {
     '#3B82F6',
     turnPlayer.value === 2 && dealingPhase.value === 'playing',
     'horizontal',
-    dealerSeat.value === 2
+    dealerSeat.value === 2,
+    turnCountdown.value
   );
 
   // 牌墙横幅：显示在顶部头像左边
@@ -2211,41 +2234,32 @@ function drawTable() {
   ctx.fillText(`🀄 牌墙 ${wallCount.value}张`, wallBoxX + wallBoxW / 2, wallBoxY + wallBoxH / 2);
   ctx.restore();
 
-  // 倒计时：显示在顶部头像右边
-  const cdBoxW = 76;
-  const cdBoxH = 26;
-  const cdBoxX = width / 2 + 52 + 10;
-  const cdBoxY = 13;
+  // 倒计时：显示在顶部头像右边 (仅纯红色数字，无时钟图标与思考中文字)
+  if (dealingPhase.value === 'playing') {
+    const cdBoxW = 46;
+    const cdBoxH = 26;
+    const cdBoxX = width / 2 + 52 + 10;
+    const cdBoxY = 13;
 
-  const isLowTime = turnCountdown.value <= 5 && turnPlayer.value === 0 && dealingPhase.value === 'playing';
-  ctx.save();
-  if (isLowTime) {
-    ctx.fillStyle = 'rgba(220, 38, 38, 0.85)';
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 1.5;
     ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
     ctx.shadowBlur = 8;
-  } else {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
-    ctx.lineWidth = 1.2;
-  }
-  ctx.beginPath();
-  ctx.roundRect(cdBoxX, cdBoxY, cdBoxW, cdBoxH, 13);
-  ctx.fill();
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.roundRect(cdBoxX, cdBoxY, cdBoxW, cdBoxH, 13);
+    ctx.fill();
+    ctx.stroke();
 
-  ctx.fillStyle = isLowTime ? '#FFFFFF' : '#FDE047';
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const cdText = dealingPhase.value !== 'playing'
-    ? '🎲 发牌中'
-    : (isClaiming.value
-      ? `⏱️ ${claimCountdown.value}s`
-      : (turnPlayer.value === 0 ? `⏱️ ${turnCountdown.value}s` : '⏱️ 思考中'));
-  ctx.fillText(cdText, cdBoxX + cdBoxW / 2, cdBoxY + cdBoxH / 2);
-  ctx.restore();
+    ctx.fillStyle = '#EF4444';
+    ctx.font = 'bold 15px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const activeSec = isClaiming.value ? claimCountdown.value : turnCountdown.value;
+    ctx.fillText(String(Math.max(0, activeSec)), cdBoxX + cdBoxW / 2, cdBoxY + cdBoxH / 2 + 0.5);
+    ctx.restore();
+  }
 
   // 2. Left: West (左玩家: 红色椭圆头像)
   const westCount = dealingPhase.value === 'dealing_tiles'
@@ -2262,7 +2276,8 @@ function drawTable() {
     '#EF4444',
     turnPlayer.value === 3 && dealingPhase.value === 'playing',
     'vertical',
-    dealerSeat.value === 3
+    dealerSeat.value === 3,
+    turnCountdown.value
   );
 
   // 3. Right: East (右玩家: 绿色椭圆头像)
@@ -2280,7 +2295,28 @@ function drawTable() {
     '#10B981',
     turnPlayer.value === 1 && dealingPhase.value === 'playing',
     'vertical',
-    dealerSeat.value === 1
+    dealerSeat.value === 1,
+    turnCountdown.value
+  );
+
+  // 4. Bottom Left: South (本家玩家: 金黄椭圆头像)
+  const southName = props.currentUser?.name ? (props.currentUser.name.length > 4 ? `${props.currentUser.name.slice(0, 3)}..` : props.currentUser.name) : '南席(我)';
+  const southEmoji = props.currentUser?.avatar || '👑';
+  const isSouthActive = (turnPlayer.value === 0 || isClaiming.value) && dealingPhase.value === 'playing';
+  const southTimer = isClaiming.value ? claimCountdown.value : turnCountdown.value;
+  drawOvalOpponentAvatar(
+    30,
+    220,
+    22,
+    42,
+    southEmoji,
+    southName,
+    myHand.value.length,
+    '#F59E0B',
+    isSouthActive,
+    'vertical',
+    dealerSeat.value === 0,
+    southTimer
   );
 
   // Discard Pool (凸字形样式：上部宽 560px 紧贴顶部头像底部，下部向左右延伸至 644px，底部显示三个玩家碰牌)
@@ -2853,6 +2889,7 @@ function passTurnToNext(fromRelSeat: number) {
     waitForPlayerClaim(() => {
       if (hasWon.value || isDrawStalemate.value) return;
       turnPlayer.value = 0;
+      startTurnCountdown();
       handleDraw();
     });
   } else {
@@ -2860,6 +2897,7 @@ function passTurnToNext(fromRelSeat: number) {
     waitForPlayerClaim(() => {
       if (hasWon.value || isDrawStalemate.value) return;
       turnPlayer.value = nextRelSeat;
+      startTurnCountdown();
       drawTable();
 
       if (isSeatBot(nextAbsSeat)) {
@@ -2871,7 +2909,7 @@ function passTurnToNext(fromRelSeat: number) {
         }, thinkTime);
       } else {
         // 🛡️ 真实连线牌友席位：等待真实玩家通过网络打牌，严禁本地代码替其代打！
-        tipMessage.value = `等待 【${SEAT_NAMES[nextRelSeat]}】 思考打牌...`;
+        tipMessage.value = `轮到 【${SEAT_NAMES[nextRelSeat]}】 出牌...`;
         drawTable();
       }
     });
@@ -3016,6 +3054,7 @@ function handleRemoteGameEvent(evtAbsSeat: number, evt: any) {
       }
     }
     turnPlayer.value = relSeat;
+    startTurnCountdown();
     tipMessage.value = `🀄 【${SEAT_NAMES[relSeat]}】 摸了一张牌`;
     drawTable();
   } else if (evt.action === 'discard') {
@@ -3033,6 +3072,7 @@ function handleRemoteGameEvent(evtAbsSeat: number, evt: any) {
     discards.value.push(tile);
     lastDiscarded.value = tile;
     turnPlayer.value = relSeat;
+    startTurnCountdown();
 
     soundFX.playMahjongClack();
     soundFX.speakVoice(tile.text);
@@ -3061,6 +3101,7 @@ function handleRemoteGameEvent(evtAbsSeat: number, evt: any) {
       lastDiscarded.value = null;
     }
     turnPlayer.value = relSeat;
+    startTurnCountdown();
     soundFX.playMahjongClack();
     soundFX.speakAction('peng', { isFemale: botIdx === 1 });
     emit('fx', 'peng');
