@@ -3440,10 +3440,10 @@ function onGameMove(payload: any) {
   const isSelfMove = typeof payload?.seat !== 'number' || payload.seat === selfSeat;
   const shouldSkipWs = payload?.isRemote || payload?.skipWs || !isSelfMove;
 
-  // 烟三游戏自身在点击出牌/过牌时已直接通过 props.ws 发送真实走子报文，此处若为中间走子(winner为null)则无需二次补发
-  const isYansanMidMove = activeGameType.value === 'yansan' && (payload?.winner === null || payload?.winner === undefined);
+  // 烟三与麻将游戏自身在出牌/碰杠/摸牌时已直接通过 props.ws 发送走子报文，此处若为中间走子(winner为null)则无需二次补发
+  const isDirectMidMove = (activeGameType.value === 'yansan' || activeGameType.value === 'mahjong') && (payload?.winner === null || payload?.winner === undefined);
 
-  if (!shouldSkipWs && !isYansanMidMove && ws && ws.readyState === WebSocket.OPEN && currentRoomIdVal) {
+  if (!shouldSkipWs && !isDirectMidMove && ws && ws.readyState === WebSocket.OPEN && currentRoomIdVal) {
     ws.send(JSON.stringify({
       type: 'game_move',
       roomId: currentRoomIdVal,

@@ -2020,6 +2020,31 @@ export async function handleApiRoute(
       if (payload.profile) {
         const pId = payload.profile.id;
         const pPhone = payload.profile.phone ? normalizePhone(payload.profile.phone) : '';
+
+        // 严格安全审查：若手机号已被注销或移出授权白名单，坚决拒绝自愈建档与数据入库，防止死灰复燃
+        const { allowedPhones, adminPhones } = getAllowedAndAdminPhones();
+        const isRevoked = pPhone && (db.revokedPhones || []).some((ph: any) => {
+          const np = normalizePhone(ph);
+          return np && (np === pPhone || np.endsWith(pPhone) || pPhone.endsWith(np));
+        });
+        const isAllowed = !pPhone || allowedPhones.length === 0 ||
+          allowedPhones.some((p) => p === pPhone || p.endsWith(pPhone) || pPhone.endsWith(p)) ||
+          adminPhones.some((p) => p === pPhone || p.endsWith(pPhone) || pPhone.endsWith(p));
+
+        if (isRevoked || !isAllowed) {
+          if (pId && db.profiles[pId]) {
+            delete db.profiles[pId];
+            saveDatabase(db);
+          }
+          sendJson(res, 200, {
+            success: false,
+            notFound: true,
+            revoked: true,
+            error: '该账号手机号授权已被管理员移除，已注销',
+          });
+          return true;
+        }
+
         let existing = pId && pId !== 'default' ? db.profiles[pId] : undefined;
         if (!existing && pPhone) {
           existing = Object.values(db.profiles).find((p) => {
@@ -2287,12 +2312,17 @@ export async function handleApiRoute(
       }
 
       const { allowedPhones, adminPhones } = getAllowedAndAdminPhones();
-      const userPhone = String(user.phone || '').trim().replace(/\D/g, '');
-      const isStillAuthorized = !userPhone ||
-        allowedPhones.some((p) => p === userPhone) ||
-        adminPhones.some((p) => p === userPhone);
+      const userPhone = normalizePhone(user.phone || '');
+      const isStillAuthorized = !userPhone || allowedPhones.length === 0 ||
+        allowedPhones.some((p) => p === userPhone || p.endsWith(userPhone) || userPhone.endsWith(p)) ||
+        adminPhones.some((p) => p === userPhone || p.endsWith(userPhone) || userPhone.endsWith(p));
 
-      if (!isStillAuthorized) {
+      const isRevoked = userPhone && (db.revokedPhones || []).some((ph: any) => {
+        const np = normalizePhone(ph);
+        return np && (np === userPhone || np.endsWith(userPhone) || userPhone.endsWith(np));
+      });
+
+      if (!isStillAuthorized || isRevoked) {
         delete db.profiles[user.id];
         saveDatabase(db);
         sendJson(res, 200, { success: true, valid: false, sessionExpired: true, error: '该账号手机号授权已被管理员移出白名单，账号已注销' });

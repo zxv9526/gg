@@ -3564,7 +3564,13 @@ function handleHint() {
     }
     hintIndex.value = (hintIndex.value + 1) % hintCombos.value.length;
     if (typeof soundFX.playTap === 'function') soundFX.playTap();
-    haptics.selection();
+    try {
+      if (typeof (haptics as any)?.selection === 'function') {
+        (haptics as any).selection();
+      } else if (typeof (haptics as any)?.tap === 'function') {
+        (haptics as any).tap();
+      }
+    } catch {}
     drawTable();
     return;
   }

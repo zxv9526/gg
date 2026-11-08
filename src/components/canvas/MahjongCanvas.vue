@@ -547,6 +547,46 @@ const emit = defineEmits<{
   (e: 'exit'): void;
 }>();
 
+function isSeatBot(absSeat: number): boolean {
+  if (props.isPracticeMode) return true;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return absSeat !== mySeat.value;
+  const p = props.roomPlayers[absSeat];
+  if (!p) return true;
+  return Boolean(p.isAi || p.isSimulated || p.isBot);
+}
+
+function relToAbsSeat(relSeat: number): number {
+  return (mySeat.value + relSeat) % 4;
+}
+
+function absToRelSeat(absSeat: number): number {
+  return (absSeat - mySeat.value + 4) % 4;
+}
+
+function sendGameMove(action: string, extraPayload: any = {}) {
+  if (!props.isPracticeMode && props.ws && props.ws.readyState === WebSocket.OPEN && props.roomId) {
+    props.ws.send(
+      JSON.stringify({
+        type: 'game_move',
+        roomId: props.roomId,
+        seat: mySeat.value,
+        payload: {
+          action,
+          seat: mySeat.value,
+          absSeat: mySeat.value,
+          ...extraPayload,
+        },
+        event: {
+          action,
+          seat: mySeat.value,
+          absSeat: mySeat.value,
+          ...extraPayload,
+        },
+      })
+    );
+  }
+}
+
 watch(() => props.tableTheme, () => {
   drawTable();
 });
@@ -752,6 +792,7 @@ function stopClaimCountdown() {
 
 function handlePassClaim() {
   soundFX.playTap();
+  sendGameMove('pass', { absSeat: mySeat.value });
   const next = pendingClaimNext;
   stopClaimCountdown();
   if (next) {
@@ -979,7 +1020,8 @@ function checkAutoHostTurn() {
       tipMessage.value = `托管打出了【${discarded.text}】到牌池`;
       drawTable();
       emit('move', { action: 'discard', tile: discarded });
-      runOpponentTurns();
+      sendGameMove('discard', { tile: discarded, absSeat: mySeat.value });
+      passTurnToNext(0);
     } else if (myHand.value.length % 3 === 1 && wallPool.length > 0) {
       handleDraw();
     }
@@ -1367,10 +1409,13 @@ function finishDealingAndStartPlay() {
       ? `👑 【${SEAT_NAMES[dealerSeat.value]}】上局自摸连庄，执 14 张牌率先出牌...`
       : `👑 【${SEAT_NAMES[dealerSeat.value]}】是庄家，执 14 张牌率先出牌...`;
     drawTable();
-    const t = setTimeout(() => {
-      botPlay(dealerSeat.value, () => passTurnToNext(dealerSeat.value));
-    }, 950);
-    dealingAnimTimers.push(t);
+    const dealerAbsSeat = relToAbsSeat(dealerSeat.value);
+    if (isSeatBot(dealerAbsSeat)) {
+      const t = setTimeout(() => {
+        botPlay(dealerSeat.value, () => passTurnToNext(dealerSeat.value));
+      }, 950);
+      dealingAnimTimers.push(t);
+    }
   }
 }
 
@@ -1417,10 +1462,13 @@ function skipDealingAnimation() {
       ? `👑 【${SEAT_NAMES[dealerSeat.value]}】上局自摸连庄，执 14 张牌率先出牌...`
       : `👑 【${SEAT_NAMES[dealerSeat.value]}】是庄家，执 14 张牌率先出牌...`;
     drawTable();
-    const t = setTimeout(() => {
-      botPlay(dealerSeat.value, () => passTurnToNext(dealerSeat.value));
-    }, 800);
-    dealingAnimTimers.push(t);
+    const dealerAbsSeat = relToAbsSeat(dealerSeat.value);
+    if (isSeatBot(dealerAbsSeat)) {
+      const t = setTimeout(() => {
+        botPlay(dealerSeat.value, () => passTurnToNext(dealerSeat.value));
+      }, 800);
+      dealingAnimTimers.push(t);
+    }
   }
 }
 
@@ -1928,6 +1976,17 @@ function triggerMahjongWin(winnerSeat: number, isFourHongzhong = false) {
       ? `${winnerName}摸到四张红中结束游戏 (${baseCodes === 6 ? '70分/各家' : '110分/各家'})`
       : `${winnerName}自摸和牌 (奖${maCount}码中${hitCount}码)`,
   });
+
+  if (winnerSeat === 0) {
+    sendGameMove('hu', {
+      winner: mySeat.value,
+      isFourHz: fourHzWin,
+      fan: 1 + hitCount,
+      rewardCoins,
+      payoutPerOpponent,
+      absSeat: mySeat.value,
+    });
+  }
 
   drawTable();
 }
@@ -2559,8 +2618,9 @@ function onCanvasClick(e: MouseEvent | PointerEvent) {
         soundFX.speakVoice(discarded.text);
         drawTable();
         emit('move', { action: 'discard', tile: discarded });
+        sendGameMove('discard', { tile: discarded, absSeat: mySeat.value });
 
-        // Trigger bot turns
+        // Trigger bot or network turns
         passTurnToNext(0);
         return;
       } else {
@@ -2586,6 +2646,7 @@ function handleDraw() {
   wallCount.value = wallPool.length;
   myHand.value.push(newTile);
   turnPlayer.value = 0;
+  sendGameMove('draw', { absSeat: mySeat.value });
   soundFX.playMahjongClack();
   haptics.mahjongClack();
 
@@ -2620,6 +2681,7 @@ function handleDiscardSelected() {
   soundFX.speakVoice(discarded.text);
   drawTable();
   emit('move', { action: 'discard', tile: discarded });
+  sendGameMove('discard', { tile: discarded, absSeat: mySeat.value });
   passTurnToNext(0);
 }
 
@@ -2648,6 +2710,7 @@ function handlePeng() {
     turnPlayer.value = 0;
     selectedIndex.value = null;
     drawTable();
+    sendGameMove('peng', { tile: d, absSeat: mySeat.value });
     if (isAutoHost.value) {
       checkAutoHostTurn();
     } else {
@@ -2757,6 +2820,7 @@ function handleGang() {
 
   selectedIndex.value = null;
   drawTable();
+  sendGameMove('gang', { absSeat: mySeat.value });
   if (isAutoHost.value) {
     checkAutoHostTurn();
   } else {
@@ -2777,33 +2841,41 @@ function runOpponentTurns() {
   passTurnToNext(0);
 }
 
-function passTurnToNext(fromSeat: number) {
+function passTurnToNext(fromRelSeat: number) {
   stopTurnCountdown();
   stopClaimCountdown();
   if (botTimer) clearTimeout(botTimer);
   if (hasWon.value || isDrawStalemate.value) return;
 
-  const nextSeat = (fromSeat + 1) % 4;
+  const nextRelSeat = (fromRelSeat + 1) % 4;
+  const nextAbsSeat = relToAbsSeat(nextRelSeat);
 
-  if (nextSeat === 0) {
-    // 轮到玩家回合
+  if (nextRelSeat === 0) {
+    // 轮到本家 (玩家) 回合
     waitForPlayerClaim(() => {
       if (hasWon.value || isDrawStalemate.value) return;
       turnPlayer.value = 0;
       handleDraw();
     });
   } else {
-    // 轮到电脑玩家回合
+    // 轮到其它席位 (真实牌友或电脑 AI)
     waitForPlayerClaim(() => {
       if (hasWon.value || isDrawStalemate.value) return;
-      turnPlayer.value = nextSeat;
+      turnPlayer.value = nextRelSeat;
       drawTable();
-      const thinkTime = Math.floor(400 + Math.random() * 400);
-      botTimer = setTimeout(() => {
-        botPlay(nextSeat, () => {
-          passTurnToNext(nextSeat);
-        });
-      }, thinkTime);
+
+      if (isSeatBot(nextAbsSeat)) {
+        const thinkTime = Math.floor(400 + Math.random() * 400);
+        botTimer = setTimeout(() => {
+          botPlay(nextRelSeat, () => {
+            passTurnToNext(nextRelSeat);
+          });
+        }, thinkTime);
+      } else {
+        // 🛡️ 真实连线牌友席位：等待真实玩家通过网络打牌，严禁本地代码替其代打！
+        tipMessage.value = `等待 【${SEAT_NAMES[nextRelSeat]}】 思考打牌...`;
+        drawTable();
+      }
     });
   }
 }
@@ -2922,6 +2994,144 @@ function botPlay(seat: number, next: () => void) {
   next();
 }
 
+function canPlayerClaimTile(tile: MahjongTile): boolean {
+  if (!tile || hasWon.value || isDrawStalemate.value) return false;
+  const matches = myHand.value.filter((c) => c.type === tile.type && c.value === tile.value);
+  const canPengTile = !(isHongzhongMode.value && isHongzhong(tile));
+  const playerCanPeng = canPengTile && matches.length >= 2;
+  const playerCanGang = canPengTile && matches.length >= 3;
+  return playerCanPeng || playerCanGang;
+}
+
+function handleRemoteGameEvent(evtAbsSeat: number, evt: any) {
+  if (!evt || evtAbsSeat === mySeat.value) return;
+
+  const relSeat = absToRelSeat(evtAbsSeat); // 1=East, 2=North, 3=West
+  const botIdx = relSeat - 1; // 0, 1, 2
+
+  if (evt.action === 'draw') {
+    if (wallPool.length > 0) {
+      const drawnTile = wallPool.shift();
+      wallCount.value = wallPool.length;
+      if (drawnTile) {
+        oppHands.value[botIdx].push(drawnTile);
+      }
+    }
+    turnPlayer.value = relSeat;
+    tipMessage.value = `🀄 【${SEAT_NAMES[relSeat]}】 摸了一张牌`;
+    drawTable();
+  } else if (evt.action === 'discard') {
+    const tile = evt.tile;
+    if (!tile) return;
+
+    const oppHand = oppHands.value[botIdx] || [];
+    const tileIdx = oppHand.findIndex((c) => c.type === tile.type && c.value === tile.value);
+    if (tileIdx !== -1) {
+      oppHand.splice(tileIdx, 1);
+    } else if (oppHand.length > 0) {
+      oppHand.pop();
+    }
+    tile.discardBy = relSeat;
+    discards.value.push(tile);
+    lastDiscarded.value = tile;
+    turnPlayer.value = relSeat;
+
+    soundFX.playMahjongClack();
+    soundFX.speakVoice(tile.text);
+    tipMessage.value = `🀄 【${SEAT_NAMES[relSeat]}】 打出了【${tile.text}】`;
+    drawTable();
+
+    waitForPlayerClaim(() => {
+      passTurnToNext(relSeat);
+    });
+  } else if (evt.action === 'peng') {
+    const tile = evt.tile || lastDiscarded.value;
+    const oppHand = oppHands.value[botIdx] || [];
+    if (tile) {
+      let removedCount = 0;
+      oppHands.value[botIdx] = oppHand.filter((c) => {
+        if (removedCount < 2 && c.type === tile.type && c.value === tile.value) {
+          removedCount++;
+          return false;
+        }
+        return true;
+      });
+      oppMelds.value[botIdx].push([tile, tile, tile]);
+      if (discards.value.length > 0 && discards.value[discards.value.length - 1].id === tile.id) {
+        discards.value.pop();
+      }
+      lastDiscarded.value = null;
+    }
+    turnPlayer.value = relSeat;
+    soundFX.playMahjongClack();
+    soundFX.speakAction('peng', { isFemale: botIdx === 1 });
+    emit('fx', 'peng');
+    tipMessage.value = `🀄 【${SEAT_NAMES[relSeat]}】 大喊：碰！`;
+    drawTable();
+  } else if (evt.action === 'gang') {
+    if (wallPool.length > 0) {
+      const supp = wallPool.pop();
+      wallCount.value = wallPool.length;
+      if (supp) {
+        oppHands.value[botIdx].push(supp);
+      }
+    }
+    turnPlayer.value = relSeat;
+    soundFX.playMahjongClack();
+    soundFX.speakAction('gang', { isFemale: botIdx === 1 });
+    emit('fx', 'gang');
+    tipMessage.value = `🀄 【${SEAT_NAMES[relSeat]}】 大喊：杠！`;
+    drawTable();
+  } else if (evt.action === 'hu') {
+    triggerMahjongWin(relSeat, Boolean(evt.isFourHz));
+  } else if (evt.action === 'pass') {
+    if (turnPlayer.value === relSeat) {
+      passTurnToNext(relSeat);
+    }
+  }
+}
+
+let lastProcessedMoveCount = -1;
+let lastProcessedMoveKey = '';
+
+function onWsMessage(ev: MessageEvent) {
+  try {
+    const msg = JSON.parse(ev.data);
+    if (msg.roomId && props.roomId && msg.roomId !== props.roomId) return;
+
+    if (msg.type === 'game_deal') {
+      lastProcessedMoveCount = -1;
+      lastProcessedMoveKey = '';
+      if (msg.deal) {
+        dealNewMatch(undefined, true);
+      }
+    } else if (msg.type === 'scene_join_ack' || msg.type === 'scene_room_full' || msg.type === 'scene_room_started' || msg.type === 'scene_reconnect_ack') {
+      lastProcessedMoveCount = -1;
+      lastProcessedMoveKey = '';
+      if (msg.deal) {
+        dealNewMatch(undefined, true);
+      }
+    } else if (msg.type === 'game_event') {
+      const evt = msg.event || msg.payload;
+      if (!evt) return;
+
+      const moveCount = typeof msg.moveCount === 'number' ? msg.moveCount : -1;
+      const moveKey = `${evt.absSeat}_${evt.action}_${evt.tile?.id || ''}`;
+
+      if (moveCount > 0 && moveCount === lastProcessedMoveCount) return;
+      if (moveKey && moveKey === lastProcessedMoveKey && moveCount <= 0) return;
+
+      if (moveCount > 0) lastProcessedMoveCount = moveCount;
+      lastProcessedMoveKey = moveKey;
+
+      const evtAbsSeat = typeof evt.absSeat === 'number' ? evt.absSeat : (typeof evt.seat === 'number' ? evt.seat : -1);
+      if (evtAbsSeat >= 0 && evtAbsSeat !== mySeat.value) {
+        handleRemoteGameEvent(evtAbsSeat, evt);
+      }
+    }
+  } catch {}
+}
+
 let cleanupMahjongLoader: (() => void) | null = null;
 
 onMounted(() => {
@@ -2929,6 +3139,9 @@ onMounted(() => {
   cleanupMahjongLoader = onMahjongAssetsLoaded(() => {
     drawTable();
   });
+  if (props.ws) {
+    props.ws.addEventListener('message', onWsMessage);
+  }
   dealNewMatch();
   updateDimensions();
   window.addEventListener('resize', updateDimensions);
@@ -2942,6 +3155,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cleanupMahjongLoader?.();
+  if (props.ws) {
+    try {
+      props.ws.removeEventListener('message', onWsMessage);
+    } catch {}
+  }
   window.removeEventListener('resize', updateDimensions);
   resizeObserver?.disconnect();
   cleanDealingTimers();

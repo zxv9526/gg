@@ -26,6 +26,11 @@ class HapticsController {
     this.vibrate(12);
   }
 
+  // Tactile feedback for card selection / hint switching
+  public selection(): void {
+    this.vibrate(15);
+  }
+
   // Double click for playing card
   public playCard(): void {
     this.vibrate([15, 30, 20]);
@@ -62,4 +67,25 @@ class HapticsController {
   }
 }
 
-export const haptics = new HapticsController();
+const rawHaptics = new HapticsController();
+
+// Safe Proxy wrapper: guarantees that calling any haptics method will never throw TypeError
+export const haptics: HapticsController & Record<string, any> = new Proxy(rawHaptics, {
+  get(target, prop, receiver) {
+    if (prop in target) {
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === 'function') {
+        return val.bind(target);
+      }
+      return val;
+    }
+    // Fallback: return bound tap or safe no-op
+    return () => {
+      try {
+        target.tap();
+      } catch {}
+    };
+  },
+});
+
+export default haptics;
