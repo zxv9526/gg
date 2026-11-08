@@ -478,15 +478,41 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (msg.type === 'scene_player_ready') {
+      if (msg.type === 'scene_player_ready' || msg.type === 'room_restart') {
         const targetRoomId = msg.roomId || (ws as any).sceneRoomId;
         const pId = msg.playerId || (ws as any).scenePlayerId;
+        let room: SceneWaitingRoom | undefined;
         if (targetRoomId && sceneWaitingRooms.has(targetRoomId)) {
-          const room = sceneWaitingRooms.get(targetRoomId)!;
-          const pl = room.players.find((p) => (p.id && pId && p.id === pId) || (p as any).socketId === (ws as any).socketId);
+          room = sceneWaitingRooms.get(targetRoomId);
+        }
+        if (!room && pId) {
+          for (const r of sceneWaitingRooms.values()) {
+            if (r.players.some((pl) => (pl.id && pId && (pl.id === pId || pl.originalId === pId)) || (pl as any).socketId === (ws as any).socketId)) {
+              room = r;
+              break;
+            }
+          }
+        }
+        if (room) {
+          const pl = room.players.find((p) =>
+            (p.id && pId && (p.id === pId || p.originalId === pId || p.id.startsWith(pId) || pId.startsWith(p.id))) ||
+            ((p as any).socketId && (p as any).socketId === (ws as any).socketId) ||
+            (p.name && msg.playerName && p.name === msg.playerName)
+          );
           if (pl) {
             (pl as any).isReady = Boolean(msg.isReady ?? true);
           }
+          // 自动为机器人/AI 席位标记准备完成
+          room.players.forEach((p: any) => {
+            if (p.isAi || p.isSimulated || p.isBot || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-')) {
+              p.isReady = true;
+            }
+          });
+
+          const readyCount = room.players.filter((p: any) => p.isReady).length;
+          console.log(`🎮 [4人联机准备] 房间 ${room.id} (${room.gameType}) 玩家准备进度: ${readyCount}/${room.maxPlayers}`);
+
+          // 广播准备进度给房内所有客户端，让全员实时更新 (1/4, 2/4, 3/4, 4/4)
           broadcast({
             type: 'scene_room_update',
             roomId: room.id,
@@ -496,7 +522,15 @@ wss.on('connection', (ws) => {
             maxPlayers: room.maxPlayers,
             status: room.status,
           });
-          startRoomGameIfFull(room);
+
+          // 严禁未全员就绪就开局！只有当所有有效席位均已点击准备 (readyCount >= maxPlayers) 时才切牌开启下一局
+          const allReady = room.players.length >= room.maxPlayers && room.players.every((p: any) => p.isReady);
+          if (allReady) {
+            console.log(`🚀 [全员就绪再开] 房间 ${room.id} (${readyCount}/${room.maxPlayers}) 4人全员准备完成，生成全新发牌切片开启下一局！`);
+            room.status = 'waiting';
+            delete (room as any).deal;
+            startRoomGameIfFull(room);
+          }
         }
         return;
       }
@@ -625,6 +659,13 @@ wss.on('connection', (ws) => {
               lockGameLaunch: true,
               forceReset: true,
               timestamp: Date.now(),
+            });
+
+            // 游戏开启后重置真人玩家准备状态，为本局结束后的“继续下一局”做准备
+            room.players.forEach((p: any) => {
+              if (!p.isAi && !p.isSimulated && !p.isBot && !p.id?.startsWith('BOT-') && !p.id?.startsWith('sim-')) {
+                p.isReady = false;
+              }
             });
           }
         }, 1400);

@@ -718,13 +718,24 @@ const turnSeat = ref(0);
 const lastCombo = ref<Combo | null>(null);
 const seatStatus = reactive(['等待出牌', '等待', '等待', '等待']);
 const winnerSeat = ref<number | null>(null);
+const isAllOtherPlayersBots = computed(() => {
+  if (props.isPracticeMode) return true;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return true;
+  return props.roomPlayers.every((p: any, idx: number) => {
+    if (idx === 0) return true;
+    return !p || p.isAi || p.isSimulated || p.isBot || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-');
+  });
+});
+
 const hasClickedReady = ref(false);
 const readyPlayersCount = computed(() => {
-  if (!props.roomPlayers) return 0;
-  const count = props.isPracticeMode
-    ? props.roomPlayers.filter((p: any) => p && (p.isReady || p.isSimulated || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-') || (p as any).isAi)).length
-    : props.roomPlayers.filter((p: any) => p && p.isReady).length;
-  return Math.min(4, count);
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return hasClickedReady.value ? 4 : 1;
+  const count = props.roomPlayers.filter((p: any, idx: number) => {
+    if (!p || p.isAi || p.isSimulated || p.isBot || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-')) return true;
+    if (idx === 0) return hasClickedReady.value || Boolean(p.isReady);
+    return Boolean(p.isReady);
+  }).length;
+  return Math.min(4, Math.max(1, count));
 });
 const errorTip = ref('');
 const isDragging = ref(false);
@@ -1545,7 +1556,7 @@ function handleLeaveToLobby() {
 
 function onRestartGame() {
   soundFX.playTap();
-  if (props.isPracticeMode) {
+  if (props.isPracticeMode || isAllOtherPlayersBots.value) {
     hasClickedReady.value = false;
     dealNewMatch();
     emit('restart');
@@ -1561,6 +1572,12 @@ function onRestartGame() {
         roomId: props.roomId,
         playerId: props.currentUser?.id,
         isReady: true,
+      }));
+      props.ws.send(JSON.stringify({
+        type: 'room_restart',
+        roomId: props.roomId,
+        gameType: 'yansan',
+        sceneMode: props.sceneMode,
       }));
     } catch {}
   }

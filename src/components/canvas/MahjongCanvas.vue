@@ -718,10 +718,24 @@ function cleanDealingTimers() {
   }
 }
 
+const isAllOtherPlayersBots = computed(() => {
+  if (props.isPracticeMode) return true;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return true;
+  return props.roomPlayers.every((p: any, idx: number) => {
+    if (idx === mySeat.value) return true;
+    return !p || p.isAi || p.isSimulated || p.isBot;
+  });
+});
+
 const hasClickedReady = ref(false);
 const readyPlayersCount = computed(() => {
-  if (!props.roomPlayers || props.roomPlayers.length === 0) return 1;
-  return props.roomPlayers.filter((p: any) => p && p.isReady).length;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return hasClickedReady.value ? 4 : 1;
+  const count = props.roomPlayers.filter((p: any, idx: number) => {
+    if (!p || p.isAi || p.isSimulated || p.isBot) return true;
+    if (idx === mySeat.value) return hasClickedReady.value || Boolean(p.isReady);
+    return Boolean(p.isReady);
+  }).length;
+  return Math.min(4, Math.max(1, count));
 });
 
 const isAutoHost = ref(false);
@@ -1141,14 +1155,18 @@ function handleLeaveToLobby() {
 
 function onRestartGame() {
   soundFX.playTap();
-  if (props.isPracticeMode) {
+  if (props.isPracticeMode || isAllOtherPlayersBots.value) {
     hasClickedReady.value = false;
+    showSettlement.value = false;
+    hasWon.value = false;
+    isDrawStalemate.value = false;
     continueGame();
     emit('restart');
     return;
   }
 
   hasClickedReady.value = true;
+  showSettlement.value = false;
   if (props.ws && props.ws.readyState === WebSocket.OPEN) {
     try {
       props.ws.send(JSON.stringify({
@@ -1156,6 +1174,12 @@ function onRestartGame() {
         roomId: props.roomId,
         playerId: props.currentUser?.id,
         isReady: true,
+      }));
+      props.ws.send(JSON.stringify({
+        type: 'room_restart',
+        roomId: props.roomId,
+        gameType: 'mahjong',
+        sceneMode: props.sceneMode,
       }));
     } catch {}
   }

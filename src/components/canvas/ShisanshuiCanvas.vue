@@ -849,9 +849,25 @@ const remoteSubmittedHands = ref<Map<number, { front: Card[]; mid: Card[]; back:
 const arrangeCountdown = ref(45);
 let arrangeTimer: any = null;
 
+const isAllOtherPlayersBots = computed(() => {
+  if (props.isPracticeMode) return true;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return true;
+  return props.roomPlayers.every((p: any, idx: number) => {
+    if (idx === 0) return true;
+    return !p || p.isAi || p.isSimulated || p.isBot || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-');
+  });
+});
+
 const hasClickedReady = ref(false);
 const readyPlayersCount = computed(() => {
-  return (props.roomPlayers || []).filter((p: any) => p?.isReady).length;
+  const total = totalSeatsCount.value || 4;
+  if (!props.roomPlayers || props.roomPlayers.length === 0) return hasClickedReady.value ? total : 1;
+  const count = props.roomPlayers.filter((p: any, idx: number) => {
+    if (!p || p.isAi || p.isSimulated || p.isBot || p.id?.startsWith('BOT-') || p.id?.startsWith('sim-')) return true;
+    if (idx === 0) return hasClickedReady.value || Boolean(p.isReady);
+    return Boolean(p.isReady);
+  }).length;
+  return Math.min(total, Math.max(1, count));
 });
 const showGunshotAnim = ref(false);
 const isGrandSlam = ref(false);
@@ -1714,7 +1730,7 @@ function handleLeaveToLobby() {
 
 function onRestartGame() {
   soundFX.playTap();
-  if (props.isPracticeMode) {
+  if (props.isPracticeMode || isAllOtherPlayersBots.value) {
     hasClickedReady.value = false;
     dealNewMatch();
     emit('restart');
@@ -1729,6 +1745,12 @@ function onRestartGame() {
         roomId: props.roomId,
         playerId: props.currentUser?.id,
         isReady: true,
+      }));
+      props.ws.send(JSON.stringify({
+        type: 'room_restart',
+        roomId: props.roomId,
+        gameType: 'shisanshui',
+        sceneMode: props.sceneMode,
       }));
     } catch {}
   }
