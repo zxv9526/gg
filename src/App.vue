@@ -498,7 +498,7 @@
             @move="onGameMove"
             @restart="onGameRestart"
             @fx="onGameFx"
-            @exit="returnToLobby"
+            @exit="returnToLobby(true)"
           />
           <ShisanshuiCanvas
             v-else-if="activeGameType === 'shisanshui'"
@@ -515,7 +515,7 @@
             @restart="onGameRestart"
             @fx="onGameFx"
             @open-poster="handleOpenPoster"
-            @exit="returnToLobby"
+            @exit="returnToLobby(true)"
           />
           <MahjongCanvas
             v-else-if="activeGameType === 'mahjong'"
@@ -531,7 +531,7 @@
             @move="onGameMove"
             @restart="onGameRestart"
             @fx="onGameFx"
-            @exit="returnToLobby"
+            @exit="returnToLobby(true)"
           />
         </div>
 
@@ -2590,9 +2590,10 @@ function promptInGameLockAlert() {
   try { soundFX.playPass?.(); } catch {}
 }
 
-function returnToLobby(forceExit = false) {
+function returnToLobby(forceExit: boolean | any = false) {
+  const isForce = forceExit === true || forceExit === 'true';
   const activeLock = getActiveGameLock();
-  if (!forceExit && currentView.value === 'arena' && activeLock) {
+  if (!isForce && currentView.value === 'arena' && activeLock) {
     const isGameFinished = activeRoom.value?.boardState?.phase === 'ended' || activeRoom.value?.status === 'finished' || activeRoom.value?.status === 'ended' || activeRoom.value?.status === 'waiting';
     if (!isGameFinished) {
       promptInGameLockAlert();

@@ -541,7 +541,8 @@ const emit = defineEmits<{
   (e: 'move', payload: any): void;
   (e: 'restart'): void;
   (e: 'fx', payload: any): void;
-  (e: 'exit'): void;
+  (e: 'exit', force?: boolean): void;
+  (e: 'game-over', payload?: any): void;
 }>();
 
 function isSeatBot(absSeat: number): boolean {
@@ -1118,6 +1119,9 @@ function sortHand(hand: MahjongTile[]): MahjongTile[] {
 }
 
 function handleLeaveToLobby() {
+  try {
+    localStorage.removeItem('app_active_game_lock');
+  } catch {}
   if (props.ws && props.ws.readyState === WebSocket.OPEN && !props.isPracticeMode) {
     try {
       props.ws.send(
@@ -1132,7 +1136,7 @@ function handleLeaveToLobby() {
       );
     } catch {}
   }
-  emit('exit');
+  emit('exit', true);
 }
 
 function onRestartGame() {
@@ -1987,6 +1991,11 @@ function triggerMahjongWin(winnerSeat: number, isFourHongzhong = false) {
     });
   }
 
+  try {
+    localStorage.removeItem('app_active_game_lock');
+  } catch {}
+  emit('game-over', { gameType: 'mahjong', winnerSeat });
+
   drawTable();
 }
 
@@ -2258,7 +2267,7 @@ function getPlayerInfoByRelSeat(relSeat: number): { name: string; avatar: string
 
   // 倒计时：显示在顶部头像右边 (仅纯红色数字，无时钟图标与思考中文字)
   if (dealingPhase.value === 'playing') {
-    const cdBoxW = 46;
+    const cdBoxW = 34;
     const cdBoxH = 26;
     const cdBoxX = width / 2 + 52 + 10;
     const cdBoxY = 13;
@@ -2677,6 +2686,10 @@ function handleDraw() {
   if (wallPool.length === 0) {
     isDrawStalemate.value = true;
     stopTurnCountdown();
+    try {
+      localStorage.removeItem('app_active_game_lock');
+    } catch {}
+    emit('game-over', { gameType: 'mahjong', isDraw: true });
     drawTable();
     return;
   }
