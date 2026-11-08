@@ -2828,34 +2828,36 @@ function connectWs() {
         const playersArr = msg.players || [];
         const isMyRoom = Boolean(msg.roomId && activeRoomId.value && msg.roomId === activeRoomId.value);
         const isMeInPlayers = Array.isArray(playersArr) && playersArr.some((p: any) =>
-          (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && p.id.startsWith(userProfile.id)))) ||
-          (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value)))) ||
-          (userProfile.name && p.name === userProfile.name)
+          (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && (p.id.startsWith(userProfile.id) || userProfile.id.startsWith(p.id))))) ||
+          (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && (p.id.startsWith(myAssignedPlayerId.value) || myAssignedPlayerId.value.startsWith(p.id))))) ||
+          (userProfile.name && (p.name === userProfile.name || (p as any).originalName === userProfile.name || (typeof p.name === 'string' && (p.name.startsWith(userProfile.name) || userProfile.name.startsWith(p.name)))))
         );
-        if (!isMyRoom && !isMeInPlayers) return;
-        if (msg.roomId) activeRoomId.value = msg.roomId;
-          if (msg.gameType) activeGameType.value = msg.gameType;
-          if (msg.sceneMode) {
-            activeSceneMode.value = msg.sceneMode;
-            hasSelectedScene.value = true;
-            if (msg.gameType === 'yansan') activeYansanScene.value = msg.sceneMode as any;
-            if (msg.gameType === 'shisanshui') activeShisanshuiScene.value = msg.sceneMode as any;
-            if (msg.gameType === 'mahjong') activeMahjongScene.value = msg.sceneMode as any;
-          }
-          if (msg.players && Array.isArray(msg.players)) currentWaitingRoomPlayers.value = msg.players;
-          if (msg.deal) currentRoomDeal.value = msg.deal;
+        const isMatchingScene = Boolean(msg.gameType === activeGameType.value && msg.sceneMode === activeSceneMode.value);
+        if (!isMyRoom && !isMeInPlayers && (!isMatchingScene || activeRoomId.value)) return;
 
-          const matchedRoomSelf = (msg.players || []).find((p: any) =>
-            (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && p.id.startsWith(userProfile.id)))) ||
-            (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && p.id.startsWith(myAssignedPlayerId.value)))) ||
-            (userProfile.name && p.name === userProfile.name)
-          );
-          if (matchedRoomSelf) {
-            myAssignedPlayerId.value = matchedRoomSelf.id;
-            if (typeof matchedRoomSelf.seat === 'number') {
-              myAssignedSeat.value = matchedRoomSelf.seat;
-            }
+        if (msg.roomId) activeRoomId.value = msg.roomId;
+        if (msg.gameType) activeGameType.value = msg.gameType;
+        if (msg.sceneMode) {
+          activeSceneMode.value = msg.sceneMode;
+          hasSelectedScene.value = true;
+          if (msg.gameType === 'yansan') activeYansanScene.value = msg.sceneMode as any;
+          if (msg.gameType === 'shisanshui') activeShisanshuiScene.value = msg.sceneMode as any;
+          if (msg.gameType === 'mahjong') activeMahjongScene.value = msg.sceneMode as any;
+        }
+        if (msg.players && Array.isArray(msg.players)) currentWaitingRoomPlayers.value = msg.players;
+        if (msg.deal) currentRoomDeal.value = msg.deal;
+
+        const matchedRoomSelf = (msg.players || []).find((p: any) =>
+          (userProfile.id && (p.id === userProfile.id || p.originalId === userProfile.id || (typeof p.id === 'string' && (p.id.startsWith(userProfile.id) || userProfile.id.startsWith(p.id))))) ||
+          (myAssignedPlayerId.value && (p.id === myAssignedPlayerId.value || p.originalId === myAssignedPlayerId.value || (typeof p.id === 'string' && (p.id.startsWith(myAssignedPlayerId.value) || myAssignedPlayerId.value.startsWith(p.id))))) ||
+          (userProfile.name && (p.name === userProfile.name || (p as any).originalName === userProfile.name || (typeof p.name === 'string' && (p.name.startsWith(userProfile.name) || userProfile.name.startsWith(p.name)))))
+        );
+        if (matchedRoomSelf) {
+          myAssignedPlayerId.value = matchedRoomSelf.id;
+          if (typeof matchedRoomSelf.seat === 'number') {
+            myAssignedSeat.value = matchedRoomSelf.seat;
           }
+        }
 
           hasSelectedScene.value = true;
           isPracticeMode.value = false;

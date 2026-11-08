@@ -931,6 +931,8 @@ function chessWebSocketPlugin(): Plugin {
                   }
                   if (oldSocketAlive) {
                     // 同一设备多开测试标签页：分配独立测试身份，互不抢占席位
+                    p.originalId = sameIdPlayer.originalId || sameIdPlayer.id || p.id;
+                    p.originalName = sameIdPlayer.originalName || sameIdPlayer.name || p.name;
                     p.id = `${p.id}_tab_${currentSocketId}`;
                     p.name = `${p.name} #${room.players.length + 1}`;
                   } else {
@@ -973,7 +975,10 @@ function chessWebSocketPlugin(): Plugin {
               (ws as any).sceneRoomId = room.id;
               (ws as any).scenePlayerId = p.id;
 
-              // 立即向刚入座的客户端发送 scene_join_ack 确认消息，确保其 activeRoomId 与 currentRoomId 瞬间对齐
+              // 关键修复：入座后若达到满员人数（例如4人），先执行开局发牌生成 deal 并广播 scene_room_full，
+              // 确保发送给刚入座客户端的 scene_join_ack 已经携带完整的 deal 切片与 starting 状态！
+              const isFullStarted = startRoomGameIfFull(room);
+
               try {
                 ws.send(JSON.stringify({
                   type: 'scene_join_ack',
@@ -990,7 +995,7 @@ function chessWebSocketPlugin(): Plugin {
                 }));
               } catch {}
 
-              if (!startRoomGameIfFull(room)) {
+              if (!isFullStarted) {
                 room.status = 'waiting';
                 delete room.deal;
                 broadcast({
@@ -1504,6 +1509,7 @@ function chessWebSocketPlugin(): Plugin {
                     combo,
                     nextTurn: p.nextTurn,
                     winner: p.winner,
+                    ...p,
                   },
                   payload: {
                     action,

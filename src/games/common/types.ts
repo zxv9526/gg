@@ -25,6 +25,7 @@ export interface ScenePlayer {
   isDisconnected?: boolean;
   isAutoManaged?: boolean;
   originalId?: string;
+  originalName?: string;
 }
 
 export interface GameModuleInfo {
