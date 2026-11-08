@@ -1745,7 +1745,7 @@ const currentSceneBaseStake = computed(() => {
 });
 
 // Danmaku and Teahouse Dialogue State
-const danmakuEnabled = ref(true);
+const danmakuEnabled = ref(false);
 const danmakuItems = reactive<{ id: string; sender: string; avatar: string; text: string; prop?: string; color: string; top: number; duration: number }[]>([]);
 const quickBarInput = ref('');
 
@@ -3208,7 +3208,6 @@ async function startVoiceRecording() {
     // 开始录音时立即暂停出牌语音播报，避免出牌语音被录音麦克风录入产生杂音
     soundFX.startVoiceChatRecording();
     soundFX.playTap();
-    triggerSpeechBubble('🎙️ 正在录音(已开启增益)... 最长20秒后自动发送');
 
     if (recordingInterval) clearInterval(recordingInterval);
     recordingInterval = window.setInterval(() => {
@@ -3334,7 +3333,6 @@ function sendVoiceBroadcastMessage(audioDataUrl: string, duration: number) {
   } else {
     playVoiceBroadcast(audioDataUrl, userProfile.name || '我', duration);
   }
-  triggerSpeechBubble(`🎙️ 语音已发送 (${duration}秒)，房间内全员收听`);
 }
 
 function playVoiceBroadcast(audioUrl: string, sender: string, duration = 2) {

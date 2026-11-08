@@ -913,8 +913,6 @@ function sendVoiceBroadcastMessage(audioDataUrl: string, duration: number) {
       );
     } catch {}
   }
-  // 发送者无需在本地听自己发出的声音，仅提示发送成功并在房间广播
-  lastGreetingText.value = `🎙️ 实时语音已发送 (${duration}s)，广播至房间牌友收听`;
   soundFX.playTap();
 }
 
@@ -1057,11 +1055,13 @@ function handleWsMessage(event: MessageEvent) {
             soundFX.playTap();
           }
         }
-        lastGreetingText.value = isMyOwnVoice ? `🎙️ 语音已成功播报给房间牌友 (${msg.duration || 1}s)` : `${msg.sender}: ${msg.text}`;
-        if (greetingTimer) clearTimeout(greetingTimer);
-        greetingTimer = setTimeout(() => {
-          lastGreetingText.value = '';
-        }, 4000);
+        if (!isMyOwnVoice) {
+          lastGreetingText.value = `${msg.sender}: ${msg.text}`;
+          if (greetingTimer) clearTimeout(greetingTimer);
+          greetingTimer = setTimeout(() => {
+            lastGreetingText.value = '';
+          }, 4000);
+        }
       }
     } else if (msg.type === 'chat_broadcast') {
       const isMyOwnVoice = (msg.message?.senderId && msg.message.senderId === props.currentUser.id) ||
